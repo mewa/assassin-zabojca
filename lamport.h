@@ -15,6 +15,6 @@ int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int de
 
 int lamport_recv(void* data, unsigned long len, MPI_Datatype dtype, int source,
 		 int tag, MPI_Comm comm, MPI_Status* status,
-		 unsigned long* clock, recv_fun f);
+		 unsigned long* clock, unsigned long* msg_clock, recv_fun f);
 
 unsigned long ulmax(unsigned long a, unsigned long b);

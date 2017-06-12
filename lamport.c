@@ -27,21 +27,20 @@ int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int de
 
 int lamport_recv(void* data, unsigned long len, MPI_Datatype dtype, int source,
 		 int tag, MPI_Comm comm, MPI_Status* status,
-		 unsigned long* clock, recv_fun recv_f) {
+		 unsigned long* clock, unsigned long* msg_clock, recv_fun recv_f) {
   pthread_mutex_lock(&clk_mutex);
 
   int pos = 0;
   void *recv_buf = malloc(MSG_MAX_SIZE);
-  unsigned long recv_clk;
 
   int ret = recv_f(recv_buf, MSG_MAX_SIZE, MPI_PACKED, source, tag, comm, status);
   if (ret < 0)
     goto recv_err;
   
-  MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, &recv_clk, 1, MPI_UNSIGNED_LONG, comm);
+  MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, msg_clock, 1, MPI_UNSIGNED_LONG, comm);
   MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, data, len, dtype, comm);
   
-  *clock = ulmax(*clock, recv_clk) + 1;
+  *clock = ulmax(*clock, *msg_clock) + 1;
  recv_err:
   pthread_mutex_unlock(&clk_mutex);
   return ret;
