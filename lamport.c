@@ -27,6 +27,13 @@ int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int de
 
 int lamport_recv(void* data, unsigned long len, MPI_Datatype dtype, int source,
 		 int tag, MPI_Comm comm, MPI_Status* status,
+		 unsigned long* clock, recv_fun recv_f) {
+  unsigned long msg_clock;
+  return lamport_recv_clk(data, len, dtype, source, tag, comm, status, clock, &msg_clock, recv_f);
+}
+
+int lamport_recv_clk(void* data, unsigned long len, MPI_Datatype dtype, int source,
+		 int tag, MPI_Comm comm, MPI_Status* status,
 		 unsigned long* clock, unsigned long* msg_clock, recv_fun recv_f) {
   pthread_mutex_lock(&clk_mutex);
 
