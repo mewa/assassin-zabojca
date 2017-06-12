@@ -41,7 +41,7 @@ int lamport_recv(void* data, unsigned long len, MPI_Datatype dtype, int source,
   MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, &recv_clk, 1, MPI_UNSIGNED_LONG, comm);
   MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, data, len, dtype, comm);
   
-  *clock = ulmax(*clock + 1, recv_clk);
+  *clock = ulmax(*clock, recv_clk) + 1;
  recv_err:
   pthread_mutex_unlock(&clk_mutex);
   return ret;
