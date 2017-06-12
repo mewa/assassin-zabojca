@@ -4,19 +4,27 @@
 #include <time.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <pthread.h>
 
 #define TAG 12
 
 void wait_sec(int min, int max) {
-    unsigned int time = (rand() % (max - min)) + min;
-    sleep(time);
+  unsigned int time = (rand() % (max - min)) + min;
+  sleep(time);
 }
 
 int main(int argc, char** argv) {
   int d = 1, i;
   int rank, size;
   unsigned long clk = 0;
-  MPI_Init(&argc, &argv);
+
+  int thread_support_provided;
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &thread_support_provided);
+  if (thread_support_provided != MPI_THREAD_MULTIPLE) {
+    fprintf(stderr, "doesn't support multithreading\n");
+    MPI_Finalize();
+    exit(-1);
+  }
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
