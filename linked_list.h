@@ -1,10 +1,16 @@
 #pragma once
 
-struct node {
-  struct node *next;
-  int data;
+struct data {
+  unsigned long clk;
+  int rank;
 };
 
-void push_element(struct node **head, int data);
+struct node {
+  struct node *next;
+  struct data data;
+};
+
+
+void push_element(struct node **head, struct data d);
 void erase_element(struct node **head, struct node *entry);
-int pop_element(struct node **head);
+struct data pop_element(struct node **head);

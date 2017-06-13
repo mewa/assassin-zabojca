@@ -12,6 +12,8 @@
 #define COMPANIES_NUM 4
 #define ASSASSINS_NUM 2
 
+pthread_mutex_t assassin_clk_mut = PTHREAD_MUTEX_INITIALIZER;
+
 int rank, size;
 unsigned long clk = 1;
 int assassin_req_clk = 0;
@@ -24,30 +26,34 @@ void wait_sec(int min, int max) {
 }
 
 void* get_assasin(void *arg) {
-  //TODO mutex
+  pthread_mutex_lock(&assassin_clk_mut);
   assassin_req_clk = clk;
   printf("%d: send req for assassin with clock %d\n", rank, assassin_req_clk);
   lamport_send_to_all(&assassin_company_num, 1, MPI_INT, ASSASIN_TAG_REQ, &clk, size, rank);
+  pthread_mutex_unlock(&assassin_clk_mut);
   int ack = 0;
   while (ack < size - ASSASSINS_NUM) {
     int msg;
     MPI_Status status;
     lamport_recv(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_ACK,
         MPI_COMM_WORLD, &status, &clk, MPI_Recv);
-    printf("%d: recv ack from %d, ack++\n", rank, status.MPI_SOURCE);
-    ack++;
+    if (msg == assassin_req_clk) {
+      printf("%d: recv ack from %d, ack++\n", rank, status.MPI_SOURCE);
+      ack++;
+    }
   }
   printf("%d: get assassin\n", rank);
   wait_sec(4, 10);
   printf("%d: free assassin\n", rank);
+  pthread_mutex_lock(&assassin_clk_mut);
   while (assassin_req_list) {
-    int n = pop_element(&assassin_req_list);
-    lamport_send(&n, 1, MPI_INT, n, ASSASIN_TAG_ACK,
+    struct data d = pop_element(&assassin_req_list);
+    lamport_send(&d.clk, 1, MPI_INT, d.rank, ASSASIN_TAG_ACK,
         MPI_COMM_WORLD, &clk, MPI_Send);
-    printf("%d: send ack after free assassin to %d\n", rank, n);
+    printf("%d: send ack after free assassin to %d\n", rank, d.rank);
   }
-
   assassin_req_clk = 0;
+  pthread_mutex_unlock(&assassin_clk_mut);
   return NULL;
 }
 
@@ -62,18 +68,24 @@ void* accept_assassin_req(void *arg) {
     printf("%d: recv req for assassin from %d with req_clk %lu\n", rank, status.MPI_SOURCE, req_clk);
     if (req_clk < assassin_req_clk || !assassin_req_clk ||
         (req_clk == assassin_req_clk && status.MPI_SOURCE < rank)) {
+      pthread_mutex_lock(&assassin_clk_mut);
       printf("%d: send ack to %d\n", rank, status.MPI_SOURCE);
-      lamport_send(NULL, 0, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK,
+      lamport_send(&req_clk, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK,
           MPI_COMM_WORLD, &clk, MPI_Send);
+      pthread_mutex_unlock(&assassin_clk_mut);
     } else {
-      push_element(&assassin_req_list, status.MPI_SOURCE);
+      struct data d;
+      d.clk = req_clk;
+      d.rank = status.MPI_SOURCE;
+      pthread_mutex_lock(&assassin_clk_mut);
+      push_element(&assassin_req_list, d);
+      pthread_mutex_unlock(&assassin_clk_mut);
     }
   }
 }
 
 int main(int argc, char** argv) {
 
-  int i;
   struct rating rating_arr[COMPANIES_NUM];
   init_ranking(rating_arr, COMPANIES_NUM);
   int thread_support_provided;
@@ -89,16 +101,6 @@ int main(int argc, char** argv) {
 
   srand(time(0) + rank);
   pthread_t assassin_req_thread, assassin_ack_thread;
-
-
-  for (i = 0; i < COMPANIES_NUM; ++i) {
-    send_rating(i, rand() % 10, &clk, size);
-  }
-  for (i = 0; i < size * COMPANIES_NUM; ++i) {
-    recv_rating(rating_arr, &clk);
-  }
-
-  print_rating(rank, rating_arr, COMPANIES_NUM);
 
   pthread_create(&assassin_req_thread, NULL, get_assasin, NULL);
   pthread_create(&assassin_ack_thread, NULL, accept_assassin_req, NULL);
