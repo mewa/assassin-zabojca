@@ -1,14 +1,14 @@
 #pragma once
 
 struct data {
-  unsigned long clk;
-  int rank;
-  int data;
+    unsigned long clk;
+    int rank;
+    int data;
 };
 
 struct node {
-  struct node *next;
-  struct data data;
+    struct node *next;
+    struct data data;
 };
 
 

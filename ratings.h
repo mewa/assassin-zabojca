@@ -1,8 +1,8 @@
 #pragma once
 
 struct rating {
-  int rating_num;
-  int rating_sum;
+    int rating_num;
+    int rating_sum;
 };
 
 int recv_rating(struct rating *arr, unsigned long *clock);
