@@ -42,7 +42,7 @@ int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int de
     void *send_buf = malloc(MSG_MAX_SIZE);
 
     pthread_mutex_lock(&clk_mutex);
-    MPI_Pack(clock, 1, MPI_UNSIGNED_LONG, send_buf, MSG_MAX_SIZE, &pos, comm);
+    MPI_Pack(clock, 1, MPI_INT, send_buf, MSG_MAX_SIZE, &pos, comm);
     (*clock)++;
     pthread_mutex_unlock(&clk_mutex);
     MPI_Pack(data, len, dtype, send_buf, MSG_MAX_SIZE, &pos, comm);
@@ -68,7 +68,7 @@ int lamport_recv_clk(void* data, unsigned long len, MPI_Datatype dtype, int sour
     if (ret < 0)
         goto recv_err;
 
-    MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, msg_clock, 1, MPI_UNSIGNED_LONG, comm);
+    MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, msg_clock, 1, MPI_INT, comm);
     MPI_Unpack(recv_buf, MSG_MAX_SIZE, &pos, data, len, dtype, comm);
 
     pthread_mutex_lock(&clk_mutex);

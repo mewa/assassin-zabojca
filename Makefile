@@ -1,5 +1,5 @@
 CC=mpicc
-CFLAGS=-Wall -lpthread
+CFLAGS=-Wall -lpthread -g
 
 build: obj
 	$(CC) $(CFLAGS) *.o -o zabojcy
