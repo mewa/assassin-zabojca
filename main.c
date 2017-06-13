@@ -7,6 +7,7 @@
 #include "ratings.h"
 #include "lamport.h"
 #include "tags.h"
+#include "linked_list.h"
 
 #define COMPANIES_NUM 4
 #define ASSASSINS_NUM 2
@@ -15,6 +16,7 @@ int rank, size;
 unsigned long clk = 1;
 int assassin_req_clk = 0;
 int assassin_company_num = 2;
+struct node *assassin_req_list = NULL;
 
 void wait_sec(int min, int max) {
   unsigned int time = (rand() % (max - min)) + min;
@@ -25,51 +27,47 @@ void* get_assasin(void *arg) {
   //TODO mutex
   assassin_req_clk = clk;
   printf("%d: send req for assassin with clock %d\n", rank, assassin_req_clk);
-  int send_to_all = lamport_send_to_all(&assassin_company_num, 1, MPI_INT, ASSASIN_TAG_REQ, &clk, size, rank);
-  if (send_to_all) {
-    fprintf(stderr, "send to all\n");
-  }
+  lamport_send_to_all(&assassin_company_num, 1, MPI_INT, ASSASIN_TAG_REQ, &clk, size, rank);
   int ack = 0;
   while (ack < size - ASSASSINS_NUM) {
-    int company_num_ack;
+    int msg;
     MPI_Status status;
-    int recv_err = lamport_recv(&company_num_ack, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_ACK,
+    lamport_recv(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_ACK,
         MPI_COMM_WORLD, &status, &clk, MPI_Recv);
-    if (recv_err) {
-      fprintf(stderr, "recv err\n");
-    }
-    printf("%d: recv ack from %d with company no: %d\n", rank, status.MPI_SOURCE, company_num_ack);
-    if (company_num_ack == assassin_company_num) {
-      printf("%d: ack++\n", rank);
-      ack++;
-    }
+    printf("%d: recv ack from %d, ack++\n", rank, status.MPI_SOURCE);
+    ack++;
   }
   printf("%d: get assassin\n", rank);
   wait_sec(4, 10);
   printf("%d: free assassin\n", rank);
-  //TODO mutex
+  while (assassin_req_list) {
+    int n = pop_element(&assassin_req_list);
+    lamport_send(&n, 1, MPI_INT, n, ASSASIN_TAG_ACK,
+        MPI_COMM_WORLD, &clk, MPI_Send);
+    printf("%d: send ack after free assassin to %d\n", rank, n);
+  }
+
   assassin_req_clk = 0;
   return NULL;
 }
 
 void* accept_assassin_req(void *arg) {
-  int company_num_req = 0;
+  int msg;
   unsigned long req_clk;
   MPI_Status status;
 
   while (1) {
-    lamport_recv_clk(&company_num_req, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ,
+    lamport_recv_clk(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ,
         MPI_COMM_WORLD, &status, &clk, &req_clk, MPI_Recv);
     printf("%d: recv req for assassin from %d with req_clk %lu\n", rank, status.MPI_SOURCE, req_clk);
     if (req_clk < assassin_req_clk || !assassin_req_clk ||
         (req_clk == assassin_req_clk && status.MPI_SOURCE < rank)) {
       printf("%d: send ack to %d\n", rank, status.MPI_SOURCE);
-      lamport_send(&company_num_req, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK,
+      lamport_send(NULL, 0, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK,
           MPI_COMM_WORLD, &clk, MPI_Send);
     } else {
-      //TODO add to queue
+      push_element(&assassin_req_list, status.MPI_SOURCE);
     }
-    //TODO empty queue
   }
 }
 
