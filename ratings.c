@@ -14,7 +14,7 @@ void init_ranking(struct rating *arr, int len) {
     }
 }
 
-int recv_rating(struct rating *arr, unsigned long *clock) {
+int recv_rating(struct rating *arr, int *clock) {
     MPI_Status status;
     int r[2];
     int ret = lamport_recv(&r, 2, MPI_INT, MPI_ANY_SOURCE, RATING_TAG, &status, clock);
@@ -23,7 +23,7 @@ int recv_rating(struct rating *arr, unsigned long *clock) {
     return ret;
 }
 
-int send_rating(int company_no, int rate, unsigned long *clock, int size) {
+int send_rating(int company_no, int rate, int *clock, int size) {
     int i;
     int r[2];
     r[COMP_NUM] = company_no;

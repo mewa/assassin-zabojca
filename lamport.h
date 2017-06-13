@@ -8,15 +8,15 @@ typedef int (*send_fun)(void const*, int, MPI_Datatype, int, int, MPI_Comm);
 typedef int (*recv_fun)(void*, int, MPI_Datatype, int, int, MPI_Comm, MPI_Status*);
 
 int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int dest,
-        int tag, unsigned long* clock);
+        int tag, int* clock);
 
 int lamport_recv_clk(void* data, unsigned long len, MPI_Datatype dtype, int source,
-        int tag, MPI_Status* status, unsigned long* clock, unsigned long* msg_clock);
+        int tag, MPI_Status* status, int* clock, int* msg_clock);
 
 int lamport_recv(void* data, unsigned long len, MPI_Datatype dtype, int source,
-        int tag, MPI_Status* status, unsigned long* clock);
+        int tag, MPI_Status* status, int* clock);
 
 int lamport_send_to_all(void const* data, unsigned long len, MPI_Datatype dtype,
-        int tag, unsigned long* clock, int size, int my_rank);
+        int tag, int* clock, int size, int my_rank);
 
-unsigned long ulmax(unsigned long a, unsigned long b);
+int ulmax(int a, int b);
