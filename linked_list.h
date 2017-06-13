@@ -3,6 +3,7 @@
 struct data {
   unsigned long clk;
   int rank;
+  int data;
 };
 
 struct node {
