@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 const unsigned long MSG_MAX_SIZE = 1024;
+MPI_Comm comm = MPI_COMM_WORLD;
 
 pthread_mutex_t clk_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -35,8 +36,7 @@ int lamport_send_to_all(void const* data, unsigned long len, MPI_Datatype dtype,
 
 
 int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int dest,
-    int tag, MPI_Comm comm,
-    unsigned long* clock, send_fun send_f) {
+    int tag, unsigned long* clock) {
 
   int pos = 0;
   void *send_buf = malloc(MSG_MAX_SIZE);
@@ -47,26 +47,24 @@ int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int de
   pthread_mutex_unlock(&clk_mutex);
   MPI_Pack(data, len, dtype, send_buf, MSG_MAX_SIZE, &pos, comm);
 
-  int ret = send_f(send_buf, pos, MPI_PACKED, dest, tag, comm);
+  int ret = MPI_Send(send_buf, pos, MPI_PACKED, dest, tag, comm);
 
   return ret;
 }
 
 int lamport_recv(void* data, unsigned long len, MPI_Datatype dtype, int source,
-    int tag, MPI_Comm comm, MPI_Status* status,
-    unsigned long* clock, recv_fun recv_f) {
+    int tag, MPI_Status* status, unsigned long* clock) {
   unsigned long msg_clock;
-  return lamport_recv_clk(data, len, dtype, source, tag, comm, status, clock, &msg_clock, recv_f);
+  return lamport_recv_clk(data, len, dtype, source, tag, status, clock, &msg_clock);
 }
 
 int lamport_recv_clk(void* data, unsigned long len, MPI_Datatype dtype, int source,
-    int tag, MPI_Comm comm, MPI_Status* status,
-    unsigned long* clock, unsigned long* msg_clock, recv_fun recv_f) {
+    int tag, MPI_Status* status, unsigned long* clock, unsigned long* msg_clock) {
 
   int pos = 0;
   void *recv_buf = malloc(MSG_MAX_SIZE);
 
-  int ret = recv_f(recv_buf, MSG_MAX_SIZE, MPI_PACKED, source, tag, comm, status);
+  int ret = MPI_Recv(recv_buf, MSG_MAX_SIZE, MPI_PACKED, source, tag, comm, status);
   if (ret < 0)
     goto recv_err;
 

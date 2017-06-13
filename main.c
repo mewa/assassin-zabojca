@@ -35,8 +35,7 @@ void* get_assasin(void *arg) {
   while (ack < size - ASSASSINS_NUM) {
     int msg;
     MPI_Status status;
-    lamport_recv(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_ACK,
-        MPI_COMM_WORLD, &status, &clk, MPI_Recv);
+    lamport_recv(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_ACK, &status, &clk);
     if (msg == assassin_req_clk) {
       printf("%d: recv ack from %d, ack++\n", rank, status.MPI_SOURCE);
       ack++;
@@ -48,8 +47,7 @@ void* get_assasin(void *arg) {
   pthread_mutex_lock(&assassin_clk_mut);
   while (assassin_req_list) {
     struct data d = pop_element(&assassin_req_list);
-    lamport_send(&d.clk, 1, MPI_INT, d.rank, ASSASIN_TAG_ACK,
-        MPI_COMM_WORLD, &clk, MPI_Send);
+    lamport_send(&d.clk, 1, MPI_INT, d.rank, ASSASIN_TAG_ACK, &clk);
     printf("%d: send ack after free assassin to %d\n", rank, d.rank);
   }
   assassin_req_clk = 0;
@@ -63,14 +61,13 @@ void* accept_assassin_req(void *arg) {
   MPI_Status status;
 
   while (1) {
-    lamport_recv_clk(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ,
-        MPI_COMM_WORLD, &status, &clk, &req_clk, MPI_Recv);
+    lamport_recv_clk(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ, &status, &clk, &req_clk);
     printf("%d: recv req for assassin from %d with req_clk %lu\n", rank, status.MPI_SOURCE, req_clk);
     if (req_clk < assassin_req_clk || !assassin_req_clk ||
         (req_clk == assassin_req_clk && status.MPI_SOURCE < rank)) {
       pthread_mutex_lock(&assassin_clk_mut);
       printf("%d: send ack to %d\n", rank, status.MPI_SOURCE);
-      lamport_send(&req_clk, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK, MPI_COMM_WORLD, &clk, MPI_Send);
+      lamport_send(&req_clk, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK, &clk);
       pthread_mutex_unlock(&assassin_clk_mut);
     } else {
       struct data d = {.clk = req_clk, .rank = status.MPI_SOURCE};
