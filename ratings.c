@@ -39,6 +39,7 @@ int send_rating(int company_no, int rate, unsigned long *clock, int size) {
 }
 
 void print_rating(int rank, struct rating *arr, int len) {
+    printf("*************RATING****************\n");
     int i;
     for (i = 0; i < len; ++i) {
         printf("%d: company no: %d, rating sum: %d, rating num: %d\n",

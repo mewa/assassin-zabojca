@@ -20,11 +20,11 @@ int rank, size;
 unsigned long clk = 1;
 int selected_company = -1;
 int assassin_req_clk = 0;
-int assassin_company_num = 2;
 int company_req_clk[COMPANIES_NUM] = {};
 int company_ack_num[COMPANIES_NUM] = {};
 struct node *assassin_req_list = NULL;
 struct node *company_req_list[COMPANIES_NUM] = {};
+struct rating rating_arr[COMPANIES_NUM];
 
 void wait_sec(int min, int max) {
     unsigned int time = (rand() % (max - min)) + min;
@@ -81,7 +81,7 @@ void* get_assasin(void *arg) {
     pthread_mutex_lock(&assassin_mut);
     assassin_req_clk = clk;
     printf("%d: send req for assassin from company %d with clock %d\n", rank, selected_company, assassin_req_clk);
-    lamport_send_to_all(&assassin_company_num, 1, MPI_INT, ASSASIN_TAG_REQ, &clk, size, rank);
+    lamport_send_to_all(&selected_company, 1, MPI_INT, ASSASIN_TAG_REQ, &clk, size, rank);
     pthread_mutex_unlock(&assassin_mut);
     int ack = 0;
     while (ack < size - ASSASSINS_NUM) {
@@ -116,6 +116,7 @@ void clear_company() {
             pop_element(&company_req_list[i]);
         }
     }
+    selected_company = -1;
 }
 
 
@@ -140,6 +141,7 @@ void* get_company(void *arg) {
         pthread_t assassin_req_thread;
         pthread_create(&assassin_req_thread, NULL, get_assasin, NULL);
         pthread_join(assassin_req_thread, NULL);
+        send_rating(selected_company, rand() % 10, &clk, size);
         clear_company();
     }
     return NULL;
@@ -154,7 +156,8 @@ void* accept_companies_req(void *arg) {
         lamport_recv_clk(&company, 1, MPI_INT, MPI_ANY_SOURCE, COMPANY_TAG_REQ, &status, &clk, &req_clk);
         printf("%d: recv req for company %d from %d with req_clk %lu\n", rank, company, status.MPI_SOURCE, req_clk);
         if (req_clk < company_req_clk[company] || !company_req_clk[company] ||
-                (req_clk == company_req_clk[company] && status.MPI_SOURCE < rank)) {
+                (req_clk == company_req_clk[company] && status.MPI_SOURCE < rank) ||
+                company != selected_company) {
             pthread_mutex_lock(&company_mut);
             printf("%d: send company %d ack to %d\n", rank, company, status.MPI_SOURCE);
             lamport_send(&req_clk, 1, MPI_INT, status.MPI_SOURCE, COMPANY_TAG_ACK, &clk);
@@ -172,14 +175,14 @@ void* accept_companies_req(void *arg) {
 
 
 void* accept_assassin_req(void *arg) {
-    int msg;
+    int company;
     unsigned long req_clk;
     MPI_Status status;
 
     while (1) {
-        lamport_recv_clk(&msg, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ, &status, &clk, &req_clk);
+        lamport_recv_clk(&company, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ, &status, &clk, &req_clk);
         printf("%d: recv req for assassin from %d with req_clk %lu\n", rank, status.MPI_SOURCE, req_clk);
-        if (req_clk < assassin_req_clk || !assassin_req_clk ||
+        if (req_clk < assassin_req_clk || ! assassin_req_clk ||
                 (req_clk == assassin_req_clk && status.MPI_SOURCE < rank)) {
             pthread_mutex_lock(&assassin_mut);
             printf("%d: send ack to %d\n", rank, status.MPI_SOURCE);
@@ -194,9 +197,18 @@ void* accept_assassin_req(void *arg) {
     }
 }
 
+void* recv_rat(void *arg) {
+    int i = 0;
+    for(;;i++) {
+        recv_rating(rating_arr, &clk);
+        if (i%3 == 0 && rank == 1) {
+            print_rating(rank, rating_arr, COMPANIES_NUM);
+        }
+    }
+}
+
 int main(int argc, char** argv) {
 
-    struct rating rating_arr[COMPANIES_NUM];
     init_ranking(rating_arr, COMPANIES_NUM);
     int thread_support_provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &thread_support_provided);
@@ -210,15 +222,17 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     srand(time(0) + rank);
-    pthread_t assassin_ack_thread, company_req_thread, company_ack_thread;
+    pthread_t assassin_ack_thread, company_req_thread, company_ack_thread, rating;
 
     pthread_create(&company_ack_thread, NULL, accept_companies_req, NULL);
     pthread_create(&company_req_thread, NULL, get_company, NULL);
     pthread_create(&assassin_ack_thread, NULL, accept_assassin_req, NULL);
+    pthread_create(&rating, NULL, recv_rat, NULL);
 
     pthread_join(assassin_ack_thread, NULL);
     pthread_join(company_ack_thread, NULL);
     pthread_join(company_req_thread, NULL);
+    pthread_join(rating, NULL);
 
     MPI_Finalize();
     return 0;
