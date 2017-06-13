@@ -9,7 +9,7 @@
 #include "tags.h"
 
 #define COMPANIES_NUM 4
-#define ASSASSINS_NUM 1
+#define ASSASSINS_NUM 2
 
 int rank, size;
 unsigned long clk = 1;
@@ -43,10 +43,9 @@ void* get_assasin(void *arg) {
       printf("%d: ack++\n", rank);
       ack++;
     }
-    ack++;
   }
   printf("%d: get assassin\n", rank);
-  //wait_sec(4, 10);
+  wait_sec(4, 10);
   printf("%d: free assassin\n", rank);
   //TODO mutex
   assassin_req_clk = 0;
@@ -59,20 +58,14 @@ void* accept_assassin_req(void *arg) {
   MPI_Status status;
 
   while (1) {
-    int lol = lamport_recv_clk(&company_num_req, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ,
+    lamport_recv_clk(&company_num_req, 1, MPI_INT, MPI_ANY_SOURCE, ASSASIN_TAG_REQ,
         MPI_COMM_WORLD, &status, &clk, &req_clk, MPI_Recv);
-    if (lol) {
-      fprintf(stderr, "rec_req \n");
-    }
     printf("%d: recv req for assassin from %d with req_clk %lu\n", rank, status.MPI_SOURCE, req_clk);
     if (req_clk < assassin_req_clk || !assassin_req_clk ||
-        (req_clk == assassin_req_clk && status.MPI_SOURCE < rank) || 1) {
+        (req_clk == assassin_req_clk && status.MPI_SOURCE < rank)) {
       printf("%d: send ack to %d\n", rank, status.MPI_SOURCE);
-      int ehe =lamport_send(&company_num_req, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK,
+      lamport_send(&company_num_req, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK,
           MPI_COMM_WORLD, &clk, MPI_Send);
-      if (ehe) {
-        fprintf(stderr, "send in recv\n");
-      }
     } else {
       //TODO add to queue
     }
@@ -85,7 +78,6 @@ int main(int argc, char** argv) {
   int i;
   struct rating rating_arr[COMPANIES_NUM];
   init_ranking(rating_arr, COMPANIES_NUM);
-
   int thread_support_provided;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &thread_support_provided);
   if (thread_support_provided != MPI_THREAD_MULTIPLE) {
@@ -97,6 +89,7 @@ int main(int argc, char** argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+  srand(time(0) + rank);
   pthread_t assassin_req_thread, assassin_ack_thread;
 
 
