@@ -31,7 +31,7 @@ int send_rating(int company_no, int rate, unsigned long *clock, int size) {
   for (i = 0; i < size; i++) {
     int ret = lamport_send(&r, 2, MPI_INT, i, RATING_TAG, MPI_COMM_WORLD, clock, MPI_Send);
     if (ret != 0) {
-      printf("rating send error\n");
+      fprintf(stderr, "rating send error\n");
       return ret;
     }
   }
