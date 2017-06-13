@@ -70,13 +70,10 @@ void* accept_assassin_req(void *arg) {
         (req_clk == assassin_req_clk && status.MPI_SOURCE < rank)) {
       pthread_mutex_lock(&assassin_clk_mut);
       printf("%d: send ack to %d\n", rank, status.MPI_SOURCE);
-      lamport_send(&req_clk, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK,
-          MPI_COMM_WORLD, &clk, MPI_Send);
+      lamport_send(&req_clk, 1, MPI_INT, status.MPI_SOURCE, ASSASIN_TAG_ACK, MPI_COMM_WORLD, &clk, MPI_Send);
       pthread_mutex_unlock(&assassin_clk_mut);
     } else {
-      struct data d;
-      d.clk = req_clk;
-      d.rank = status.MPI_SOURCE;
+      struct data d = {.clk = req_clk, .rank = status.MPI_SOURCE};
       pthread_mutex_lock(&assassin_clk_mut);
       push_element(&assassin_req_list, d);
       pthread_mutex_unlock(&assassin_clk_mut);
