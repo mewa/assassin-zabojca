@@ -40,14 +40,15 @@ void recv_company_ack() {
     MPI_Status status;
     lamport_recv(&company, 1, MPI_INT, MPI_ANY_SOURCE, COMPANY_TAG_ACK, &status, &clk);
     company_ack_num[company]++;
-    printf("%d recive %d ack for %d company\n", rank, company_ack_num[company], company);
+    printf("%d: recive %d ack for %d company\n", rank, company_ack_num[company], company);
     if (company_ack_num[company] >= size - NEAR_COMPANY) {
         selected_company = company;
         printf("%d: almost get company %d\n", rank, company);
+        printf("%d: freeing rest companies\n", rank);
     }
 }
 
-void abort_other_companies() {
+void free_other_companies() {
     int i;
     for (i = 0; i < COMPANIES_NUM; i++) {
         if (company_req_clk[i] && i != selected_company) {
@@ -55,7 +56,7 @@ void abort_other_companies() {
             pthread_mutex_lock(&company_mut);
             while (company_req_list[i]) {
                 struct data d = pop_element(&company_req_list[i]);
-                lamport_send(&d.clk, 1, MPI_INT, d.rank, COMPANY_TAG_ACK, &clk);
+                lamport_send(&d.data, 1, MPI_INT, d.rank, COMPANY_TAG_ACK, &clk);
                 printf("%d: send ack after free company %d to %d\n", rank, i, d.rank);
             }
             pthread_mutex_unlock(&company_mut);
@@ -79,7 +80,7 @@ void get_last_ack() {
 void* get_assasin(void *arg) {
     pthread_mutex_lock(&assassin_mut);
     assassin_req_clk = clk;
-    printf("%d: send req for assassin with clock %d\n", rank, assassin_req_clk);
+    printf("%d: send req for assassin from company %d with clock %d\n", rank, selected_company, assassin_req_clk);
     lamport_send_to_all(&assassin_company_num, 1, MPI_INT, ASSASIN_TAG_REQ, &clk, size, rank);
     pthread_mutex_unlock(&assassin_mut);
     int ack = 0;
@@ -92,7 +93,7 @@ void* get_assasin(void *arg) {
             ack++;
         }
     }
-    printf("%d: get assassin\n", rank);
+    printf("%d: get assassin from company no: %d\n", rank, selected_company);
     wait_sec(4, 10);
     printf("%d: free assassin\n", rank);
     pthread_mutex_lock(&assassin_mut);
@@ -133,7 +134,7 @@ void* get_company(void *arg) {
         while (selected_company < 0) {
             recv_company_ack();
         }
-        abort_other_companies();
+        free_other_companies();
         get_last_ack();
         printf("%d want to get assassin from company no %d\n", rank, selected_company);
         pthread_t assassin_req_thread;
