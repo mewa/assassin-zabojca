@@ -63,8 +63,8 @@ void wait_sec(int min, int max) {
     sleep(time);
 }
 
-void send_company_req(int company) {
-    lamport_send_to_all(&company, 1, MPI_INT, COMPANY_TAG_REQ, &clk, size, rank);
+int send_company_req(int company) {
+    return lamport_send_to_all(&company, 1, MPI_INT, COMPANY_TAG_REQ, &clk, size, rank);
 }
 
 void recv_company_ack() {
@@ -119,11 +119,8 @@ void* get_company(void *arg) {
         int i;
         for (i = 0; i < COMPANIES_NUM; i++) {
             if (rand() % 2) {
-                pthread_mutex_lock(&company_mut);
-                clock_at_req[i] = clk;
+                clock_at_req[i] = send_company_req(i);
                 print("want %d company with clk %d\n", i, clock_at_req[i]);
-                send_company_req(i);
-                pthread_mutex_unlock(&company_mut);
             }
         }
         while (selected_company < 0) {

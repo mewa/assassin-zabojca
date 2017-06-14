@@ -29,11 +29,7 @@ int send_rating(int company_no, int rate, int *clock, int size) {
     r[COMP_NUM] = company_no;
     r[RATE] = rate;
     for (i = 0; i < size; i++) {
-        int ret = lamport_send(&r, 2, MPI_INT, i, RATING_TAG, clock);
-        if (ret != 0) {
-            fprintf(stderr, "rating send error\n");
-            return ret;
-        }
+        lamport_send(&r, 2, MPI_INT, i, RATING_TAG, clock);
     }
     return 0;
 }

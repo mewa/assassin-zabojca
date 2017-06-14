@@ -16,6 +16,7 @@ int lamport_send_to_all(void const* data, unsigned long len, MPI_Datatype dtype,
 
     pthread_mutex_lock(&clk_mutex);
     MPI_Pack(clock, 1, MPI_INT, send_buf, MSG_MAX_SIZE, &pos, comm);
+    int clock_when_sending = *clock;
     (*clock)++;
     pthread_mutex_unlock(&clk_mutex);
     MPI_Pack(data, len, dtype, send_buf, MSG_MAX_SIZE, &pos, comm);
@@ -23,14 +24,11 @@ int lamport_send_to_all(void const* data, unsigned long len, MPI_Datatype dtype,
     int i;
     for (i = 0; i < size; i++) {
         if (i != my_rank) {
-            int ret = MPI_Send(send_buf, pos, MPI_PACKED, i, tag, comm);
-            if (ret) {
-                return ret;
-            }
+            MPI_Send(send_buf, pos, MPI_PACKED, i, tag, comm);
         }
     }
 
-    return 0;
+    return clock_when_sending;
 }
 
 
@@ -43,13 +41,14 @@ int lamport_send(void const* data, unsigned long len, MPI_Datatype dtype, int de
 
     pthread_mutex_lock(&clk_mutex);
     MPI_Pack(clock, 1, MPI_INT, send_buf, MSG_MAX_SIZE, &pos, comm);
+    int clock_when_sending = *clock;
     (*clock)++;
     pthread_mutex_unlock(&clk_mutex);
     MPI_Pack(data, len, dtype, send_buf, MSG_MAX_SIZE, &pos, comm);
 
-    int ret = MPI_Send(send_buf, pos, MPI_PACKED, dest, tag, comm);
+    MPI_Send(send_buf, pos, MPI_PACKED, dest, tag, comm);
 
-    return ret;
+    return clock_when_sending;
 }
 
 int lamport_recv(void* data, unsigned long len, MPI_Datatype dtype, int source,
