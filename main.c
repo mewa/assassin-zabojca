@@ -10,9 +10,9 @@
 #include "linked_list.h"
 #include <stdarg.h>
 
-#define COMPANIES_NUM 3
+#define COMPANIES_NUM 1
 #define ASSASSINS_NUM 1
-#define NEAR_COMPANY 1
+#define NEAR_COMPANY 2
 
 pthread_mutex_t company_mut = PTHREAD_MUTEX_INITIALIZER;
 
@@ -118,10 +118,8 @@ void* get_company(void *arg) {
     while (1) {
         int i;
         for (i = 0; i < COMPANIES_NUM; i++) {
-            if (rand() % 2) {
-                clock_at_req[i] = send_company_req(i);
-                print("want %d company with clk %d\n", i, clock_at_req[i]);
-            }
+            clock_at_req[i] = send_company_req(i);
+            print("want %d company with clk %d\n", i, clock_at_req[i]);
         }
         while (selected_company < 0) {
             recv_company_ack();
