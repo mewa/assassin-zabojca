@@ -15,7 +15,7 @@ int lamport_send_to_all(void const* data, unsigned long len, MPI_Datatype dtype,
     MPI_Comm comm = MPI_COMM_WORLD;
 
     pthread_mutex_lock(&clk_mutex);
-    MPI_Pack(clock, 1, MPI_UNSIGNED_LONG, send_buf, MSG_MAX_SIZE, &pos, comm);
+    MPI_Pack(clock, 1, MPI_INT, send_buf, MSG_MAX_SIZE, &pos, comm);
     (*clock)++;
     pthread_mutex_unlock(&clk_mutex);
     MPI_Pack(data, len, dtype, send_buf, MSG_MAX_SIZE, &pos, comm);
