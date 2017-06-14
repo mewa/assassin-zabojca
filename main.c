@@ -10,9 +10,9 @@
 #include "linked_list.h"
 #include <stdarg.h>
 
-#define COMPANIES_NUM 4
-#define ASSASSINS_NUM 2
-#define NEAR_COMPANY 2
+#define COMPANIES_NUM 3
+#define ASSASSINS_NUM 1
+#define NEAR_COMPANY 1
 
 pthread_mutex_t company_mut = PTHREAD_MUTEX_INITIALIZER;
 
@@ -25,11 +25,20 @@ struct node *req_for_company[COMPANIES_NUM] = {};
 struct rating rating_arr[COMPANIES_NUM];
 
 void print(char* fmt, ...) {
+  char buf[1024] = {};
+  int index = 0;
   va_list args;
-  printf("[%d | R%d] ", clk, rank);
+  index += sprintf(buf + index, "[%d | R%d] ", clk, rank);
+  int i;
+  index += sprintf(buf + index, " [ ");
+  for (i = 0; i < COMPANIES_NUM; i++) {
+      index += sprintf(buf + index, "%d:%d ", i, ack_num[i]);
+  }
+  index += sprintf(buf + index, "] ");
   va_start(args, fmt);
-  vprintf(fmt, args);
+  index += vsprintf(buf + index, fmt, args);
   va_end(args);
+  printf("%s", buf);
 }
 
 void send_ack(int req_clk, int company, int id) {
@@ -42,9 +51,9 @@ struct data recv_ack() {
     int tab[2]={};
     lamport_recv(tab, 2, MPI_INT, MPI_ANY_SOURCE, COMPANY_TAG_ACK, &status, &clk);
     struct data d = {.clk = tab[0], .rank = status.MPI_SOURCE, .company = tab[1]};
-    print("receive ack for company %d\n", d.company);
     if(d.clk == clock_at_req[d.company]) {
         ack_num[d.company]++;
+        print("receive ack for company %d\n", d.company);
     }
     return d;
 }
@@ -62,8 +71,7 @@ void recv_company_ack() {
     struct data d = recv_ack();
     if (ack_num[d.company] >= size - NEAR_COMPANY - ASSASSINS_NUM) {
         selected_company = d.company;
-        print("almost get company %d\n", d.company);
-        print("freeing rest companies\n");
+        print("almost get company %d, freeing other companies\n", d.company);
     }
 }
 
@@ -112,8 +120,8 @@ void* get_company(void *arg) {
         for (i = 0; i < COMPANIES_NUM; i++) {
             if (rand() % 2) {
                 pthread_mutex_lock(&company_mut);
-                print("want %d company\n", i);
                 clock_at_req[i] = clk;
+                print("want %d company with clk %d\n", i, clock_at_req[i]);
                 send_company_req(i);
                 pthread_mutex_unlock(&company_mut);
             }
@@ -123,9 +131,9 @@ void* get_company(void *arg) {
         }
         free_other_companies();
         get_last_ack();
-        print("want to get assassin from company no %d\n", selected_company);
+        print("[assassin start] from company no %d\n", selected_company);
         wait_sec(1, 2);
-        print("freeing assassin from company no %d\n", selected_company);
+        print("[assassin stop] from company no %d\n", selected_company);
         send_rating(selected_company, rand() % 10, &clk, size);
         clear();
     }
@@ -144,8 +152,8 @@ void* accept_companies_req(void *arg) {
         if (d.clk < clock_at_req[d.company] || !clock_at_req[d.company] ||
                 (d.clk == clock_at_req[d.company] && d.rank < rank) ||
                 (selected_company >= 0 && d.company != selected_company)) {
-            print("send ack to %d for company %d\n", d.rank, d.company);
             send_ack(d.clk, d.company, d.rank);
+            print("send ack to %d for company %d\n", d.rank, d.company);
         } else {
             pthread_mutex_lock(&company_mut);
             push_element(&req_for_company[d.company], d);
