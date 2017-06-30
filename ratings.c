@@ -38,7 +38,7 @@ void print_rating(int rank, struct rating *arr, int len) {
     printf("*************RATING****************\n");
     int i;
     for (i = 0; i < len; ++i) {
-        printf("%d: company no: %d, rating sum: %d, rating num: %d\n",
-                rank, i, arr[i].rating_sum, arr[i].rating_num);
+        printf("%d: company no: %d: %4.2f\n",
+                rank, i, (float) arr[i].rating_sum / arr[i].rating_num);
     }
 }
