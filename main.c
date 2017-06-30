@@ -97,10 +97,10 @@ void free_other_companies() {
 
 void get_last_ack() {
     while (1) {
-        recv_ack();
         if (ack_num[selected_company] == size - ASSASSINS_NUM) {
             return;
         }
+        recv_ack();
     }
 }
 
