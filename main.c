@@ -19,27 +19,27 @@ pthread_mutex_t company_mut = PTHREAD_MUTEX_INITIALIZER;
 int rank, size;
 int clk = 1;
 int completed = 0;
-int selected_company = -4;
+int selected_company = -1;
 int clock_at_req[COMPANIES_NUM] = {};
 int ack_num[COMPANIES_NUM] = {};
 struct node *req_for_company[COMPANIES_NUM] = {};
 struct rating rating_arr[COMPANIES_NUM];
 
 void print(char* fmt, ...) {
-  char buf[1024] = {};
-  int index = 0;
-  va_list args;
-  index += sprintf(buf + index, "[%d | R%d] ", clk, rank);
-  int i;
-  index += sprintf(buf + index, " [ ");
-  for (i = 0; i < COMPANIES_NUM; i++) {
-      index += sprintf(buf + index, "%d:%d ", i, ack_num[i]);
-  }
-  index += sprintf(buf + index, "] ");
-  va_start(args, fmt);
-  index += vsprintf(buf + index, fmt, args);
-  va_end(args);
-  printf("%s", buf);
+    char buf[1024] = {};
+    int index = 0;
+    va_list args;
+    index += sprintf(buf + index, "[%d | R%d] ", clk, rank);
+    int i;
+    index += sprintf(buf + index, " [ ");
+    for (i = 0; i < COMPANIES_NUM; i++) {
+        index += sprintf(buf + index, "%d:%d ", i, ack_num[i]);
+    }
+    index += sprintf(buf + index, "] ");
+    va_start(args, fmt);
+    index += vsprintf(buf + index, fmt, args);
+    va_end(args);
+    printf("%s", buf);
 }
 
 void send_ack(int msg_clk, int company, int id) {
@@ -52,7 +52,7 @@ void recv_ack(MPI_Status status, int *tab) {
     if(d.clk == clock_at_req[d.company]) {
         ack_num[d.company]++;
         print("receive ack for company %d\n", d.company);
-        if (ack_num[d.company] >= size - NEAR_COMPANY - ASSASSINS_NUM) {
+        if (ack_num[d.company] >= size - NEAR_COMPANY - ASSASSINS_NUM && selected_company < 0) {
             selected_company = d.company;
             print("almost get company %d, freeing other companies\n", d.company);
         }
@@ -65,10 +65,6 @@ void recv_ack(MPI_Status status, int *tab) {
 void wait_sec(int min, int max) {
     unsigned int time = (rand() % (max - min)) + min;
     sleep(time);
-}
-
-int send_company_req(int company) {
-    return lamport_send_to_all(&company, 1, MPI_INT, COMPANY_TAG_REQ, &clk, size, rank);
 }
 
 void send_all_remain_ack(int company) {
@@ -91,18 +87,6 @@ void free_other_companies() {
     }
 }
 
-void clear() {
-    int i;
-    for (i = 0; i < COMPANIES_NUM; i++) {
-        clock_at_req[i] = 0;
-        ack_num[i] = 0;
-        send_all_remain_ack(i);
-    }
-    selected_company = -1;
-    completed = 0;
-}
-
-
 void accept_companies_req(MPI_Status status, int msg_clk, int company) {
     struct data d = {.clk = msg_clk, .rank = status.MPI_SOURCE, .company = company};
     print("recv req for company %d from %d with msg_clk %d\n", d.company, d.rank, d.clk);
@@ -118,6 +102,20 @@ void accept_companies_req(MPI_Status status, int msg_clk, int company) {
     }
 }
 
+int send_company_req(int company) {
+    return lamport_send_to_all(&company, 1, MPI_INT, COMPANY_TAG_REQ, &clk, size, rank);
+}
+
+void clear() {
+    int i;
+    for (i = 0; i < COMPANIES_NUM; i++) {
+        clock_at_req[i] = 0;
+        ack_num[i] = 0;
+        send_all_remain_ack(i);
+    }
+    selected_company = -1;
+    completed = 0;
+}
 
 int main(int argc, char** argv) {
 
@@ -133,11 +131,12 @@ int main(int argc, char** argv) {
     int msg_clk;
     init_ranking(rating_arr, COMPANIES_NUM);
 
-    while (1) {
-        int i;
-        for (i = 0; i < COMPANIES_NUM; i++) {
-            clock_at_req[i] = send_company_req(i);
-            print("want %d company with clk %d\n", i, clock_at_req[i]);
+    int i = 0;
+    for (;; i++) {
+        int j;
+        for (j = 0; j < COMPANIES_NUM; j++) {
+            clock_at_req[j] = send_company_req(j);
+            print("want %d company with clk %d\n", j, clock_at_req[j]);
         }
 
         while (!completed) {
@@ -159,11 +158,13 @@ int main(int argc, char** argv) {
         }
 
         print("[assassin start] from company no %d\n", selected_company);
-        wait_sec(1, 2);
+        wait_sec(3, 5);
         print("[assassin stop] from company no %d\n", selected_company);
         send_rating(selected_company, rand() % 10, &clk, size);
         clear();
-        //print_rating(rank, rating_arr, COMPANIES_NUM);
+        if (i % 3 == 0 && rank == 0) {
+            print_rating(rank, rating_arr, COMPANIES_NUM);
+        }
     }
 
     MPI_Finalize();
