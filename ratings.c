@@ -14,13 +14,9 @@ void init_ranking(struct rating *arr, int len) {
     }
 }
 
-int recv_rating(struct rating *arr, int *clock) {
-    MPI_Status status;
-    int r[2];
-    int ret = lamport_recv(&r, 2, MPI_INT, MPI_ANY_SOURCE, RATING_TAG, &status, clock);
+void recv_rating(struct rating *arr, int *clock, int *r) {
     arr[r[COMP_NUM]].rating_num++;
     arr[r[COMP_NUM]].rating_sum += r[RATE];
-    return ret;
 }
 
 int send_rating(int company_no, int rate, int *clock, int size) {
